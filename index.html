@@ -10,10 +10,27 @@
 
 <body>
   <h1>Hello crypto world</h1>
-  <p>Nom du contrat : <span class="contractName"></span></p>
+  <p style="display: none;" class="accountContainer">
+    Mon compte : <span class="myAccount"></span>
+  </p>
   <p>Total mint : <span class="totalMint"></span></p>
 
   <button id="LoginBtn">Connect wallet</button>
+
+  <hr>
+  <form id="AddWhitelist" action="#">
+    <input class="adrToWhitelist" type="text" placeholder="address to whitelist">
+    <input type="submit" value="whitelist">
+  </form>
+
+  <hr>
+  <form id="MintForm" action="#">
+    <label for="tokenId">ID du NFT a ajoute au panier</label>
+    <input class="tokenToAdd" name="tokenId" type="number">
+    <input type="submit" value="Add Cart">
+  </form>
+  <ul class="CartContent"></ul>
+  <button id="Mint">Minter le panier</button>
 
   <script src="dist/web3.min.js"></script>
   <script src="./app.js"></script>

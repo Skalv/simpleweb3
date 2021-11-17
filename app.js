@@ -1,4 +1,4 @@
-const ABI = [
+const weLockLoveABI = [
   {
     "inputs": [
       {
@@ -784,21 +784,132 @@ const ABI = [
   }
 ]
 
-const web3 = new Web3(Web3.givenProvider || "ws://localhost:8545")
-const contract = new web3.eth.Contract(ABI, "0xCC085dCad2D315970b9E153B853e3953e6ec0DB6")
+class MyDapp {
+  constructor(ABI) {
+    this.web3 = new Web3(Web3.givenProvider || "ws://localhost:8545")
+    this.contract = new this.web3.eth.Contract(ABI, "0xCC085dCad2D315970b9E153B853e3953e6ec0DB6")
+    this.cart = []
 
-contract.methods
-  .name()
-  .call()
-  .then(result => {
-    document.getElementsByClassName('contractName')[0].append(result)
-    console.log(result)
-  })
+    document.getElementById('LoginBtn').addEventListener('click', () => {
+      this.connect()
+    })
+    document.getElementById('AddWhitelist').addEventListener('submit', (event) => {
+      event.preventDefault()
+      const accountToAdd = document.getElementsByClassName('adrToWhitelist')[0].value
+      this.addToWhitelist(accountToAdd)
+    })
+    document.getElementById('MintForm').addEventListener('submit', (event) => {
+      event.preventDefault()
+      const tokenToAdd = document.getElementsByClassName('tokenToAdd')[0].value
+      this.addCart(tokenToAdd)
+    })
 
-contract.methods
-  .totalSupply()
-  .call()
-  .then(result => {
-    document.getElementsByClassName('totalMint')[0].append(result)
-    console.log(result)
-  })
+    document.getElementById('Mint').addEventListener('click', () => {
+      this.mint()
+    })
+
+    this.getTotalSupply()
+  }
+
+  connect() {
+    ethereum
+      .request({ method: 'eth_requestAccounts' })
+      .then(accounts => {
+        this.account = accounts[0]
+        console.log("connected !", this.account)
+
+        document.getElementById('LoginBtn').style.display = 'none'
+        document.getElementsByClassName('myAccount')[0].append(this.account)
+        document.getElementsByClassName('accountContainer')[0].style.display = 'block'
+        this.checkIsWhitelist()
+      }).catch(err => {
+        console.error('ERROR : ', err.message)
+      })
+  }
+
+  getTotalSupply() {
+    this.contract.methods
+      .totalSupply()
+      .call()
+      .then(result => {
+        document.getElementsByClassName('totalMint')[0].append(result)
+      }).catch(err => {
+        console.error(err)
+      })
+  }
+
+  checkIsWhitelist() {
+    this.contract.methods
+      .isWhitelisted(this.account)
+      .call()
+      .then(response => {
+        if (response) {
+          document.getElementsByClassName('accountContainer')[0].style.color = 'green'
+        } else {
+          document.getElementsByClassName('accountContainer')[0].style.color = 'red'
+        }
+      }).catch(err => {
+        console.error(err)
+      })
+  }
+
+  addToWhitelist(accountToAdd) {
+    // Attention c'est long d'avoir une réponse (temps du minage)
+    // Donc indiquer que ca charge pour pas que l'utilisateur click partout
+    this.contract.methods
+      .addToWhitelist(accountToAdd)
+      .send({
+        from: "" // only owner of contract
+      }).then(response => {
+        console.log(response)
+      }).catch(err => {
+        console.log(err)
+      })
+  }
+
+  mint() {
+    // Attention c'est long d'avoir une réponse (temps du minage)
+    // Donc indiquer que ca charge pour pas que l'utilisateur click partout
+    this.contract.methods
+      .mintNFT(this.cart)
+      .send({
+        from: this.account()
+      }).then(response => {
+        console.log(response)
+      }).catch(err => {
+        console.log(err)
+      })
+  }
+
+  addCart(tokenId) {
+    this.contract.methods
+      .getCartHash(tokenId)
+      .call()
+      .then(response => {
+        // var msgHash = ethUtil.keccak256('An amazing message, for use with MetaMask!')
+        // web3.eth.sign(from, msgHash, function (err, result) {
+        //   if (err) return console.error(err)
+        //   console.log('SIGNED:' + result)
+        // })
+
+        console.log(response)
+      }).catch(err => {
+        console.error(err)
+      })
+
+
+    // this.cart.push(tokenId)
+    // const listEl = document.getElementsByClassName('CartContent')[0]
+    // listEl.innerHTML = ""
+    // for (let i = 0; i < this.cart.length; i++) {
+    //   const li = document.createElement("li")
+    //   li.append(`NFT #${this.cart[i]}`)
+    //   listEl.append(li)
+    // }
+  }
+}
+
+if (typeof window.ethereum !== 'undefined') {
+  console.log("Metamask is installed")
+  myApp = new MyDapp(weLockLoveABI)
+}
