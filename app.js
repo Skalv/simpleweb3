@@ -786,8 +786,8 @@ const weLockLoveABI = [
 
 class MyDapp {
   constructor(ABI) {
-    this.web3 = new Web3(Web3.givenProvider || "ws://localhost:8545")
-    this.contract = new this.web3.eth.Contract(ABI, "0xCC085dCad2D315970b9E153B853e3953e6ec0DB6")
+    this.web3 = new Web3(Web3.givenProvider)
+    this.contract = new this.web3.eth.Contract(ABI, "0x7FFd018c0CfAE692bC6d5818e5FD443D246D14C2")
     this.cart = []
 
     document.getElementById('LoginBtn').addEventListener('click', () => {
@@ -822,6 +822,7 @@ class MyDapp {
         document.getElementsByClassName('myAccount')[0].append(this.account)
         document.getElementsByClassName('accountContainer')[0].style.display = 'block'
         this.checkIsWhitelist()
+        this.checkWallet()
       }).catch(err => {
         console.error('ERROR : ', err.message)
       })
@@ -853,13 +854,28 @@ class MyDapp {
       })
   }
 
+  checkWallet() {
+    this.contract.methods
+      .walletOfOwner(this.account)
+      .call()
+      .then(response => {
+        if (response) {
+          console.log(response)
+        } else {
+          console.log("wallet empty")
+        }
+      }).catch(err => {
+        console.error(err)
+      })
+  }
+
   addToWhitelist(accountToAdd) {
     // Attention c'est long d'avoir une réponse (temps du minage)
     // Donc indiquer que ca charge pour pas que l'utilisateur click partout
     this.contract.methods
       .addToWhitelist(accountToAdd)
       .send({
-        from: "" // only owner of contract
+        from: this.account // only owner of contract
       }).then(response => {
         console.log(response)
       }).catch(err => {
@@ -868,12 +884,26 @@ class MyDapp {
   }
 
   mint() {
+    if (this.cart.length <= 0) return
+
+    let tokenIds = []
+    let hashSigns = []
+
+    for (let i = 0; i < this.cart.length; i++) {
+      tokenIds.push(this.cart[i].tokenId)
+      hashSigns.push(this.cart[i].signHash)
+    }
+
+    const price = this.web3.utils.toWei(`${this.getTotalPrice()}`)
+
+    console.log(tokenIds, hashSigns, price)
     // Attention c'est long d'avoir une réponse (temps du minage)
     // Donc indiquer que ca charge pour pas que l'utilisateur click partout
     this.contract.methods
-      .mintNFT(this.cart)
+      .mintNFT(tokenIds, hashSigns)
       .send({
-        from: this.account()
+        from: this.account,
+        value: this.web3.utils.toHex(price)
       }).then(response => {
         console.log(response)
       }).catch(err => {
@@ -884,28 +914,52 @@ class MyDapp {
   addCart(tokenId) {
     this.contract.methods
       .getCartHash(tokenId)
-      .call()
-      .then(response => {
+      .call({
+        from: this.account
+      })
+      .then(cartHash => {
+        return ethereum.request({
+          method: "personal_sign",
+          params: [
+            this.account,
+            cartHash
+          ]
+        })
         // var msgHash = ethUtil.keccak256('An amazing message, for use with MetaMask!')
-        // web3.eth.sign(from, msgHash, function (err, result) {
-        //   if (err) return console.error(err)
-        //   console.log('SIGNED:' + result)
-        // })
+      }).then(signHash => {
+        this.cart.push({
+          tokenId,
+          signHash
+        })
 
-        console.log(response)
-      }).catch(err => {
+        const listEl = document.getElementsByClassName('CartContent')[0]
+        listEl.innerHTML = ""
+        for (let i = 0; i < this.cart.length; i++) {
+          const li = document.createElement("li")
+          li.append(`NFT #${this.cart[i].tokenId} -> ${this.cart[i].signHash}`)
+          listEl.append(li)
+        }
+      })
+      .catch(err => {
         console.error(err)
       })
+  }
 
+  getTotalPrice() {
+    let total = 0
+    for (let i = 0; i < this.cart.length; i++) {
+      if (this.cart[i].tokenId <= 2) {
+        total += 10
+      } else if (this.cart[i].tokenId > 2 && this.cart[i].tokenId <= 16) {
+        total += 1
+      } else if (this.cart[i].tokenId > 16 && this.cart[i].tokenId <= 119) {
+        total += 0.1
+      } else if (this.cart[i].tokenId > 119 && this.cart[i].tokenId <= 915) {
+        total += 0.01
+      }
+    }
 
-    // this.cart.push(tokenId)
-    // const listEl = document.getElementsByClassName('CartContent')[0]
-    // listEl.innerHTML = ""
-    // for (let i = 0; i < this.cart.length; i++) {
-    //   const li = document.createElement("li")
-    //   li.append(`NFT #${this.cart[i]}`)
-    //   listEl.append(li)
-    // }
+    return total
   }
 }
 
